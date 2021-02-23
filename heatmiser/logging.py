@@ -1,7 +1,9 @@
 import datetime
 
+
 log_levels = ['debug1', 'debug', 'info', 'warn', 'error']
-LOG_LEVEL = 2
+LOG_LEVEL = 1
+
 
 def log(level, message, *args):
     try:
