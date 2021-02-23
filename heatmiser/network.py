@@ -1,7 +1,9 @@
 import asyncio
 import serial_asyncio
-from heatmiser import protocol
+from heatmiser.protocol import HeatmiserFrame,HeatmiserProtocol
 from heatmiser import device
+from heatmiser.logging import log
+
 
 class HeatmiserNetwork:
     def __init__(self, serial_device: str, discovery_range: list):
@@ -12,10 +14,12 @@ class HeatmiserNetwork:
         self.discovery_range = discovery_range
         self.protocol = None
     
+
     """Build a serial protocol object with queue
     """
     def _protocol_factory(self):
-        return protocol.HeatmiserProtocol(self.queue)
+        return HeatmiserProtocol(self.queue)
+
 
     """Main run loop
     """
@@ -30,33 +34,37 @@ class HeatmiserNetwork:
         # Start monitoring for incoming frames
         frame_handler = asyncio.ensure_future(self._handle_frames())
         # Begin device discovery
-        print("Discovering devices...")
+        log('info', 'Discovering devices...')
         await self._discover_devices(self.discovery_range)
         # Run monitor loop
-        print(f"Monitoring {len(self.devices.keys())} devices")
+        log('info', f'Monitoring {len(self.devices.keys())} devices')
         await asyncio.gather(self._monitor_loop(), frame_handler)
+
 
     async def _handle_frames(self):
         while True:
             frame = await self.queue.get()
-            print('valid frame:', frame)
+            log('debug1', 'valid frame:', frame)
             device_id = frame.device_id
             try:
                 self.devices[device_id].handle_frame(frame)
             except KeyError:
-                self.devices[device_id] = device.HeatmiserDevice(frame=frame)
-            #for dev in self.devices.values():
-            #    print(dev)
+                new_device = device.HeatmiserDevice(frame=frame)
+                if type(new_device) != device.HeatmiserDevice:
+                    self.devices[device_id] = new_device
+                    log('info', 'Discovered device', new_device)
                 
+
     async def _discover_devices(self, discovery_range):
         for id in discovery_range:
-            frame = protocol.HeatmiserFrame(id, 0x4d, 0x00)
-            self.protocol.write_frame(frame)
-            await asyncio.sleep(.2)
+            frame = HeatmiserFrame(id, 0x4d, 0x00)
+            await self.protocol.write_frame(frame)
+            await asyncio.sleep(.1)
         
+
     async def _monitor_loop(self):
         while True:
             for id, device in self.devices.items():
-                frame = protocol.HeatmiserFrame(id, device.C_READ_PARAM, 0x00)
-                self.protocol.write_frame(frame)
-                await asyncio.sleep(.2)
+                frame = HeatmiserFrame(id, device.C_READ_PARAM, 0x00)
+                await self.protocol.write_frame(frame)
+                await asyncio.sleep(.1)

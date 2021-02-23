@@ -1,15 +1,18 @@
 #!/usr/bin/env python3.9
 
 import asyncio
-from heatmiser import network
-from heatmiser import device
+from heatmiser.network import HeatmiserNetwork
+from heatmiser.device import HeatmiserDevice
+from heatmiser.logging import log
+
 
 def hm_device_updated(device, param_name, value):
-    print(f"HM Device Updated - ID: {device.id}, {param_name} = {value}")
+    log('info', f"HM Device Updated - ID: {device.id}, {param_name} = {value}")
+
 
 async def main():
-    device.HeatmiserDevice.on_param_change = hm_device_updated
-    hmn = network.HeatmiserNetwork('socket://192.168.100.243:1024', range(1, 11))
+    HeatmiserDevice.on_param_change = hm_device_updated
+    hmn = HeatmiserNetwork('socket://192.168.100.243:1024', range(1, 11))
     await hmn.run()
 
 
