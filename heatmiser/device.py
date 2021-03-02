@@ -6,10 +6,13 @@ from datetime import datetime, timedelta
 class HeatmiserDevice:
     C_READ_PARAM = 0x00
     TYPE_STR = "Unknown"
-    MONITOR_PARAMS = ["datetime", "room_temp", "set_temp", "part_number", "switching_diff", "temp_format", "heating_state", "lock_state", "frost_mode", "enabled", "set_temp", "frost_temp", "output_delay", "floor_temp"]
+    MONITOR_PARAMS = [
+        "datetime", "room_temp", "set_temp", "part_number",
+        "switching_diff", "temp_format", "heating_state",
+        "lock_state", "frost_mode", "enabled", "set_temp",
+        "frost_temp", "output_delay", "floor_temp"]
     on_param_change = None
-    
-    
+
     def __init__(self, frame: HeatmiserFrame = None):
         self.__dict__["_params"] = {}
         self._id = None
@@ -18,14 +21,13 @@ class HeatmiserDevice:
         if frame:
             self._declare(frame)
 
-
     """Perform initial setup of the device from a discover frame (0x4d)
     """
     def _declare(self, frame: HeatmiserFrame):
         if not frame.is_valid:
             log('warn', "invalid frame:", frame)
             return
-        
+
         self._id = frame.device_id
         command = frame.command_code
 
@@ -39,11 +41,10 @@ class HeatmiserDevice:
                 if not isinstance(self, HeatmiserDevicePRTHW):
                     self.__class__ = HeatmiserDevicePRTHW
                     self.__init__(frame)
-            #self.room_temp = frame.get_int(3) - 0x50
-            #self.set_temp = frame.get_int(4) - 0x50
+            # self.room_temp = frame.get_int(3) - 0x50
+            # self.set_temp = frame.get_int(4) - 0x50
         else:
             log('error', "expected command code 0x4d")
-
 
     """Update the device with current data
     """
@@ -58,8 +59,11 @@ class HeatmiserDevice:
             self._part_number = frame.get_bits(7, 0, 4)
             self._switching_diff = frame.get_bits(7, 4, 4)
             self._temp_format = frame.get_bool(8, 0)
-            self._manual_hw_state, self._hw_state, self._heating_state, self._frost_mode, self._lock_state, self._enabled = frame.get_bool(8, 2, 6)
-            self._set_temp, self._frost_temp, self._output_delay, self._floor_temp = frame.get_bytes(9, 4)
+            self._manual_hw_state, self._hw_state, self._heating_state, \
+                self._frost_mode, self._lock_state, self._enabled \
+                = frame.get_bool(8, 2, 6)
+            self._set_temp, self._frost_temp, self._output_delay, \
+                self._floor_temp = frame.get_bytes(9, 4)
 
     def _relative_date(self, reference, weekday, hour, minute):
         if reference.weekday() < weekday:
@@ -67,16 +71,13 @@ class HeatmiserDevice:
         days = reference.weekday() - weekday
         return (reference - timedelta(days=days)).replace(
             hour=int(hour), minute=int(minute), second=0, microsecond=0)
-    
 
     def _send_param_update(self, name, value):
         log('debug', f'sending update to param {name}: {value}')
 
-
     @property
     def id(self) -> int:
         return self._id
-    
 
     def __getattr__(self, name):
         def get_param():
@@ -85,7 +86,6 @@ class HeatmiserDevice:
             except KeyError:
                 raise AttributeError
         return get_param()
-    
 
     def __setattr__(self, name, value):
         if name.startswith("_") and name[1:] in self._params:
@@ -98,10 +98,10 @@ class HeatmiserDevice:
             self._send_param_update(name, value)
         else:
             object.__setattr__(self, name, value)
-            
 
     def __str__(self):
-        return f'ID: {self.id}, Type: {self.TYPE_STR}, Room Temp: {self.room_temp}, State: {self.enabled}'
+        return (f'ID: {self.id}, Type: {self.TYPE_STR}, '
+            f'Room Temp: {self.room_temp}, State: {self.enabled}')
 
 
 class HeatmiserDevicePRT(HeatmiserDevice):
@@ -112,7 +112,6 @@ class HeatmiserDevicePRT(HeatmiserDevice):
 class HeatmiserDevicePRTHW(HeatmiserDevice):
     C_READ_PARAM = 0x29
     TYPE_STR = "PRTHW"
-    
 
     def __init__(self, frame: HeatmiserFrame = None):
         super().__init__(frame)

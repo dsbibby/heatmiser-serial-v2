@@ -13,7 +13,7 @@ def hm_device_updated(device, param_name, value):
 async def main():
     HeatmiserDevice.on_param_change = hm_device_updated
     hmn = HeatmiserNetwork('socket://192.168.100.243:1024', range(1, 11))
-    await hmn.run()
+    await asyncio.gather(hmn.run())
 
 
 if __name__ == "__main__":
