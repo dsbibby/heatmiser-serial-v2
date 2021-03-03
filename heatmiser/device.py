@@ -21,6 +21,7 @@ class HeatmiserDevice:
         if frame:
             self._declare(frame)
 
+
     """Perform initial setup of the device from a discover frame (0x4d)
     """
     def _declare(self, frame: HeatmiserFrame):

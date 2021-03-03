@@ -26,6 +26,7 @@ class HeatmiserProtocol(asyncio.Protocol):
         log('debug', 'port closed')
         self.transport.loop.stop()
 
+
     def pause_writing(self):
         log('debug', 'pause writing')
         log('debug', self.transport.get_write_buffer_size())
@@ -60,6 +61,7 @@ class HeatmiserFrame:
             self._data = bytearray(data)
         else:
             raise TypeError
+
 
     def __str__(self):
         return ":".join("{:02x}".format(c) for c in self._data)
