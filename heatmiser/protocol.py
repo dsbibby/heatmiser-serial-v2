@@ -24,8 +24,7 @@ class HeatmiserProtocol(asyncio.Protocol):
 
     def connection_lost(self, exc):
         log('debug', 'port closed')
-        self.transport.loop.stop()
-
+        #self.transport.loop.stop()
 
     def pause_writing(self):
         log('debug', 'pause writing')

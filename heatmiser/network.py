@@ -32,15 +32,29 @@ class HeatmiserNetwork:
         while self.protocol.transport is None:
             await asyncio.sleep(1)
         # Start monitoring for incoming frames
-        frame_handler = asyncio.ensure_future(self._handle_frames())
+        frame_handler = asyncio.create_task(self._handle_frames())
         # Begin device discovery
         log('info', 'Discovering devices...')
         await self._discover_devices(self.discovery_range)
         # Run monitor loop
         log('info', f'Monitoring {len(self.devices.keys())} devices')
-        await asyncio.gather(self._monitor_loop(), frame_handler)
+        tasks = set()
+        tasks.add(asyncio.create_task(self._monitor_loop()))
+        tasks.add(frame_handler)
+        while self.protocol.transport.serial:
+            await asyncio.sleep(5)
+        #log('warn', 'cancelling serial handlers')
+        #for task in tasks:
+        #    task.cancel()
 
 
+    """Close the serial connection cleanly
+    """
+    def close(self):
+        if self.protocol.transport:
+             self.protocol.transport.close()
+
+        
     async def _handle_frames(self):
         while True:
             frame = await self.queue.get()
