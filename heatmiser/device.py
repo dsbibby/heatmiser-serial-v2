@@ -54,18 +54,7 @@ class HeatmiserDevice:
         if not frame.is_valid or frame.device_id != self.id:
             log('error', "Invalid frame for device_id", self.id, ":", frame)
         if frame.command_code == self.C_READ_PARAM:
-            now = datetime.now()
-            weekday = frame.get_bits(3, 0, 4) - 1
-            hour, minute, self._room_temp = frame.get_bytes(4, 3)
-            self._datetime = self._relative_date(now, weekday, hour, minute)
-            self._part_number = frame.get_bits(7, 0, 4)
-            self._switching_diff = frame.get_bits(7, 4, 4)
-            self._temp_format = frame.get_bool(8, 0)
-            self._manual_hw_state, self._hw_state, self._heating_state, \
-                self._frost_mode, self._lock_state, self._enabled \
-                = frame.get_bool(8, 2, 6)
-            self._set_temp, self._frost_temp, self._output_delay, \
-                self._floor_temp = frame.get_bytes(9, 4)
+            self._update_all(frame)
 
     def _relative_date(self, reference, weekday, hour, minute):
         if reference.weekday() < weekday:
@@ -123,6 +112,20 @@ class HeatmiserDevicePRT(HeatmiserDevice):
     C_READ_PARAM = 0x26
     TYPE_STR = "PRT"
 
+    def _update_all(self, frame):
+        now = datetime.now()
+        weekday = frame.get_bits(3, 0, 4) - 1
+        hour, minute, self._room_temp = frame.get_bytes(4, 3)
+        self._datetime = self._relative_date(now, weekday, hour, minute)
+        self._part_number = frame.get_bits(7, 0, 4)
+        self._switching_diff = frame.get_bits(7, 4, 4)
+        self._temp_format = frame.get_bool(8, 0)
+        self._manual_hw_state, self._hw_state, self._heating_state, \
+            self._frost_mode, self._lock_state, self._enabled \
+            = frame.get_bool(8, 2, 6)
+        self._set_temp, self._frost_temp, self._output_delay, \
+            self._floor_temp = frame.get_bytes(9, 4)
+
 
 class HeatmiserDevicePRTHW(HeatmiserDevice):
     C_READ_PARAM = 0x29
@@ -132,3 +135,16 @@ class HeatmiserDevicePRTHW(HeatmiserDevice):
         super().__init__(frame)
         self._params["manual_hw_state"] = None
         self._params["hw_state"] = None
+    
+    def _update_all(self, frame):
+        now = datetime.now()
+        weekday = frame.get_bits(3, 0, 4) - 1
+        hour, minute, self._room_temp, self._set_temp = frame.get_bytes(4, 4)
+        self._datetime = self._relative_date(now, weekday, hour, minute)
+        #self._part_number = frame.get_bits(9, 0, 4)
+        self._switching_diff = frame.get_bits(9, 4, 4)
+        self._temp_format = frame.get_bool(8, 0)
+        self._manual_hw_state, self._hw_state, self._heating_state, \
+            self._frost_mode, self._lock_state, self._enabled \
+            = frame.get_bool(8, 2, 6)
+        self._frost_temp, self._output_delay = frame.get_bytes(10, 2)
