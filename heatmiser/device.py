@@ -11,11 +11,12 @@ class HeatmiserDevice:
         "switching_diff", "temp_format", "heating_state",
         "lock_state", "frost_mode", "enabled", "set_temp",
         "frost_temp", "output_delay", "floor_temp"]
-    on_param_change = None
+    #on_param_change = None
 
     def __init__(self, frame: HeatmiserFrame = None):
         self.__dict__["_params"] = {}
         self._id = None
+        self._on_param_change = HeatmiserDevice.on_param_change
         for param in self.MONITOR_PARAMS:
             self._params[param] = None
         if frame:
@@ -33,12 +34,12 @@ class HeatmiserDevice:
         command = frame.command_code
 
         if command == 0x4d:
-            type = frame.get_int(2)
-            if type == 0x51:
+            device_type = frame.get_int(2)
+            if device_type == 0x51:
                 if not isinstance(self, HeatmiserDevicePRT):
                     self.__class__ = HeatmiserDevicePRT
                     self.__init__(frame)
-            elif type == 0x52:
+            elif device_type == 0x52:
                 if not isinstance(self, HeatmiserDevicePRTHW):
                     self.__class__ = HeatmiserDevicePRTHW
                     self.__init__(frame)
@@ -53,18 +54,7 @@ class HeatmiserDevice:
         if not frame.is_valid or frame.device_id != self.id:
             log('error', "Invalid frame for device_id", self.id, ":", frame)
         if frame.command_code == self.C_READ_PARAM:
-            now = datetime.now()
-            weekday = frame.get_bits(3, 0, 4) - 1
-            hour, minute, self._room_temp = frame.get_bytes(4, 3)
-            self._datetime = self._relative_date(now, weekday, hour, minute)
-            self._part_number = frame.get_bits(7, 0, 4)
-            self._switching_diff = frame.get_bits(7, 4, 4)
-            self._temp_format = frame.get_bool(8, 0)
-            self._manual_hw_state, self._hw_state, self._heating_state, \
-                self._frost_mode, self._lock_state, self._enabled \
-                = frame.get_bool(8, 2, 6)
-            self._set_temp, self._frost_temp, self._output_delay, \
-                self._floor_temp = frame.get_bytes(9, 4)
+            self._update_all(frame)
 
     def _relative_date(self, reference, weekday, hour, minute):
         if reference.weekday() < weekday:
@@ -84,8 +74,8 @@ class HeatmiserDevice:
         def get_param():
             try:
                 return self._params[name]
-            except KeyError:
-                raise AttributeError
+            except KeyError as e:
+                raise AttributeError from e
         return get_param()
 
     def __setattr__(self, name, value):
@@ -104,10 +94,37 @@ class HeatmiserDevice:
         return (f'ID: {self.id}, Type: {self.TYPE_STR}, '
             f'Room Temp: {self.room_temp}, State: {self.enabled}')
 
+    @property
+    def on_param_change(self):
+        return self._on_param_change
+
+    @on_param_change.setter
+    def on_param_change(self, func):
+        self._on_param_change = func
+
+    # def param_change_callback(self):
+    #     def decorater(func):
+    #         self.on_param_change = func
+    #         return func
+    #     return decorater
 
 class HeatmiserDevicePRT(HeatmiserDevice):
     C_READ_PARAM = 0x26
     TYPE_STR = "PRT"
+
+    def _update_all(self, frame):
+        now = datetime.now()
+        weekday = frame.get_bits(3, 0, 4) - 1
+        hour, minute, self._room_temp = frame.get_bytes(4, 3)
+        self._datetime = self._relative_date(now, weekday, hour, minute)
+        self._part_number = frame.get_bits(7, 0, 4)
+        self._switching_diff = frame.get_bits(7, 4, 4)
+        self._temp_format = frame.get_bool(8, 0)
+        self._manual_hw_state, self._hw_state, self._heating_state, \
+            self._frost_mode, self._lock_state, self._enabled \
+            = frame.get_bool(8, 2, 6)
+        self._set_temp, self._frost_temp, self._output_delay, \
+            self._floor_temp = frame.get_bytes(9, 4)
 
 
 class HeatmiserDevicePRTHW(HeatmiserDevice):
@@ -118,3 +135,16 @@ class HeatmiserDevicePRTHW(HeatmiserDevice):
         super().__init__(frame)
         self._params["manual_hw_state"] = None
         self._params["hw_state"] = None
+    
+    def _update_all(self, frame):
+        now = datetime.now()
+        weekday = frame.get_bits(3, 0, 4) - 1
+        hour, minute, self._room_temp, self._set_temp = frame.get_bytes(4, 4)
+        self._datetime = self._relative_date(now, weekday, hour, minute)
+        #self._part_number = frame.get_bits(9, 0, 4)
+        self._switching_diff = frame.get_bits(9, 4, 4)
+        self._temp_format = frame.get_bool(8, 0)
+        self._manual_hw_state, self._hw_state, self._heating_state, \
+            self._frost_mode, self._lock_state, self._enabled \
+            = frame.get_bool(8, 2, 6)
+        self._frost_temp, self._output_delay = frame.get_bytes(10, 2)

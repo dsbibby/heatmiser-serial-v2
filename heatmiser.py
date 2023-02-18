@@ -4,7 +4,9 @@ import asyncio
 from heatmiser.network import HeatmiserNetwork
 from heatmiser.device import HeatmiserDevice
 from heatmiser.logging import log
+import heatmiser.logging
 
+heatmiser.logging.LOG_LEVEL = 0
 
 def hm_device_updated(device, param_name, value):
     log('info', f"HM Device Updated - ID: {device.id}, {param_name} = {value}")
