@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime
 
 
 log_levels = ['debug1', 'debug', 'info', 'warn', 'error']
@@ -12,5 +12,5 @@ def log(level, message, *args):
         return
     
     if l >= LOG_LEVEL:
-        d = datetime.datetime.now()
+        d = datetime.now()
         print(d, f"[{level.upper()}]", message, *args)
