@@ -7,10 +7,10 @@ LOG_LEVEL = 1
 
 def log(level, message, *args):
     try:
-        l = log_levels.index(level.lower())
+        log_level_index = log_levels.index(level.lower())
     except ValueError:
         return
-    
-    if l >= LOG_LEVEL:
+
+    if log_level_index >= LOG_LEVEL:
         d = datetime.now()
         print(d, f"[{level.upper()}]", message, *args)

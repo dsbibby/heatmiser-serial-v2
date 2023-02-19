@@ -7,15 +7,29 @@ from heatmiser.logging import log
 import heatmiser.logging
 
 
+
 def hm_device_updated(device, param_name, value):
     log('info', f"HM Device Updated - ID: {device.id}, {param_name} = {value}")
 
 
+async def send_updates(device: HeatmiserDevice):
+    await asyncio.sleep(5)
+    #device.enabled = False
+    await device._send_param_update('enabled', False)
+    await asyncio.sleep(5)
+    #device.enabled = True
+    await device._send_param_update('enabled', True)
+
+
 async def main():
     HeatmiserDevice.on_param_change = hm_device_updated
-    hmn = HeatmiserNetwork('socket://192.168.100.243:1024', range(1, 11))
-    await asyncio.gather(hmn.run())
-    
+    hmn = HeatmiserNetwork('socket://192.168.100.243:1024', [2,5]) # range(1, 11))
+    tasks = []
+    tasks.append(asyncio.create_task(hmn.run()))
+    await asyncio.sleep(10)
+    tasks.append(asyncio.create_task(send_updates(hmn.device(5))))
+    await asyncio.gather(*tasks)
+
 
 if __name__ == "__main__":
     asyncio.run(main())
