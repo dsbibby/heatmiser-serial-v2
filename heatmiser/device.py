@@ -1,3 +1,4 @@
+import asyncio
 from heatmiser.protocol import HeatmiserFrame
 from heatmiser.logging import log
 from datetime import datetime, timedelta
@@ -109,7 +110,7 @@ class HeatmiserDevice():
                 if callable(self.on_param_change):
                     self.on_param_change(name, value)
         elif name in self._params:
-            self._send_param_update(name, value)
+            asyncio.create_task(self._send_param_update(name, value))
         else:
             object.__setattr__(self, name, value)
 

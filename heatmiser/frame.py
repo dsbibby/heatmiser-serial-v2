@@ -8,7 +8,9 @@ class HeatmiserFrame:
             self._data = bytearray(4)
             self.set_bytes(0, device_id)
             self.set_bytes(1, command_code)
-            if data:
+            if data != None:
+                if isinstance(data, bool):
+                    data = 0xff if data else 0x00
                 self.set_bytes(2, data)
         elif isinstance(data, bytes):
             self._data = bytearray(data)
