@@ -65,7 +65,7 @@ class HeatmiserDevice():
     """Update the device with current data
     """
     async def handle_frame(self, frame: HeatmiserFrame):
-        log('debug', 'Device', self.id, 'got frame:', frame)
+        log('debug1', 'Device', self.id, 'got frame:', frame)
         if not frame.is_valid or frame.device_id != self.id:
             log('error', "Invalid frame for device_id", self.id, ":", frame)
         if frame.command_code == self.C_READ_PARAM:
@@ -160,12 +160,14 @@ class HeatmiserDevicePRT(HeatmiserDevice):
     C_READ_PARAM = 0x26
     C_WRITE_PARAM = 0xA6
     TYPE_STR = "PRT"
+    MONITOR_PARAMS = {
+        **HeatmiserDevice.MONITOR_PARAMS,
+        **{
+            "sensor_selection": None,
+            "floor_limit":  None
+        }
+    }
 
-    def __init__(self, network, frame: HeatmiserFrame = None):
-        super().__init__(network, frame)
-        self._params["sensor_selection"] = None,
-        self._params["floor_limit"] = None
-        
     def _read_all_from_frame(self, frame):
         now = datetime.now()
         self._pre_heat = frame.get_bits(3, 4, 3)
@@ -212,11 +214,13 @@ class HeatmiserDevicePRTHW(HeatmiserDevice):
     C_READ_PARAM = 0x29
     C_WRITE_PARAM = 0xA9
     TYPE_STR = "PRTHW"
-
-    def __init__(self, network, frame: HeatmiserFrame = None):
-        super().__init__(network, frame)
-        self._params["manual_hw_state"] = None
-        self._params["hw_state"] = None
+    MONITOR_PARAMS = {
+        **HeatmiserDevice.MONITOR_PARAMS,
+        **{
+            "manual_hw_state": None,
+            "hw_state": None
+        }
+    }
 
     def _read_all_from_frame(self, frame):
         now = datetime.now()
