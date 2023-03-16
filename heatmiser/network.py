@@ -59,7 +59,7 @@ class HeatmiserNetwork:
             log('debug1', 'hmn valid frame:', frame)
             device_id = frame.device_id
             try:
-                self._devices[device_id].handle_frame(frame)
+                await self._devices[device_id].handle_frame(frame)
             except KeyError:
                 new_device = device.HeatmiserDevice(self, frame=frame)
                 if isinstance(new_device, device.HeatmiserDevice):
@@ -76,11 +76,13 @@ class HeatmiserNetwork:
 
     async def _monitor_loop(self):
         while True:
-            for _id, _device in self._devices.items():
-                frame = HeatmiserFrame(_id, _device.C_READ_PARAM, 0x00)
-                await self._protocol.write_frame(frame)
-                await asyncio.sleep(.1)
-
+            for id, device in self._devices.items():
+                await device.refresh()
+                await asyncio.sleep(.2)
+                
+    async def write_frame(self, frame):
+        await self._protocol.write_frame(frame)
+        
     def device(self, id: int):
         if id in self._devices:
             return self._devices[id]

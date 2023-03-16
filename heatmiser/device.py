@@ -18,12 +18,15 @@ class HeatmiserDevice():
         "switching_diff": None,
         "temp_format": None,
         "heating_state": None,
-        "lock_state": 0x1a,
+        "lock_state": None,
         "frost_mode": 0x64,
         "enabled": 0x02,
         "frost_temp": 0x07,
+        "frost_enable": None,
         "output_delay": None,
-        "floor_temp": None
+        "floor_temp": None,
+        "pre_heat": None,
+        "floor_state": None
     }
 
     def __init__(self, network, frame: HeatmiserFrame = None):
@@ -56,19 +59,33 @@ class HeatmiserDevice():
                 if not isinstance(self, HeatmiserDevicePRTHW):
                     self.__class__ = HeatmiserDevicePRTHW
                     self.__init__(self._net, frame)
-            self._room_temp = frame.get_int(3) - 0x50
-            self._set_temp = frame.get_int(4) - 0x50
         else:
             log('error', "expected command code 0x4d. Got", command, '-', frame)
 
     """Update the device with current data
     """
-    def handle_frame(self, frame: HeatmiserFrame):
+    async def handle_frame(self, frame: HeatmiserFrame):
+        log('debug', 'Device', self.id, 'got frame:', frame)
         if not frame.is_valid or frame.device_id != self.id:
             log('error', "Invalid frame for device_id", self.id, ":", frame)
         if frame.command_code == self.C_READ_PARAM:
-            self._read_all_from_frame(frame)
+            if len(frame) == 4:
+                await self._net.write_frame(frame)
+            else:
+                self._read_all_from_frame(frame)
+        else:
+            #param = self._get_param_for_code(frame.command_code)
+            #if param and len(frame) == 4:
+            #    await self._net.write_frame(frame)
+            #else:
+            #    log('debug', "Unhandled frame:", frame)
+            await self.refresh()
 
+    async def refresh(self):
+        log('debug1', f'Device, id {self.id} refreshing')
+        frame = HeatmiserFrame(self.id, self.C_READ_PARAM, 0x00)
+        await self._net.write_frame(frame)
+        
     def _relative_date(self, reference, weekday, hour, minute):
         if reference.weekday() < weekday:
             weekday -= 7
@@ -79,11 +96,22 @@ class HeatmiserDevice():
     async def _send_param_update(self, name, value):
         log('debug', f'sending update to param {name}: {value}')
         if name in self.MONITOR_PARAMS:
-            command_code = self.MONITOR_PARAMS[name] + 128
-            frame = HeatmiserFrame(self.id, command_code, value)
+            command_code = self.MONITOR_PARAMS[name]
+            if command_code == None:
+                self._params[name], value = value, self._params[name]
+                frame = self._write_all_to_frame()
+                self._params[name], value = value, self._params[name]
+            else:
+                frame = HeatmiserFrame(self.id, command_code + 128, value)
             log('debug', f'Will send frame: {frame}')
-            await self._net._protocol.write_frame(frame)
+            await self._net.write_frame(frame)
 
+    def _get_param_for_code(self, code):
+        keys = [k for k, v in self.MONITOR_PARAMS.items() if v == code]
+        if keys:
+            return keys[0]
+        return None
+        
     def _read_all_from_frame(self, frame):
         pass
 
@@ -133,24 +161,50 @@ class HeatmiserDevicePRT(HeatmiserDevice):
     C_WRITE_PARAM = 0xA6
     TYPE_STR = "PRT"
 
+    def __init__(self, network, frame: HeatmiserFrame = None):
+        super().__init__(network, frame)
+        self._params["sensor_selection"] = None,
+        self._params["floor_limit"] = None
+        
     def _read_all_from_frame(self, frame):
         now = datetime.now()
+        self._pre_heat = frame.get_bits(3, 4, 3)
+        self._floor_state = frame.get_bool(3, 7)
         weekday = frame.get_bits(3, 0, 4) - 1
         hour, minute, self._room_temp = frame.get_bytes(4, 3)
         self._datetime = self._relative_date(now, weekday, hour, minute)
         self._part_number = frame.get_bits(7, 0, 4)
         self._switching_diff = frame.get_bits(7, 4, 4)
-        self._temp_format = frame.get_bool(8, 0)
-        self._manual_hw_state, self._hw_state, self._heating_state, \
+        self._temp_format, self._frost_enable = frame.get_bool(8, 0, 2)
+        self._sensor_selection, self._floor_limit, self._heating_state, \
             self._frost_mode, self._lock_state, self._enabled \
             = frame.get_bool(8, 2, 6)
         self._set_temp, self._frost_temp, self._output_delay, \
             self._floor_temp = frame.get_bytes(9, 4)
 
     def _write_all_to_frame(self):
+        now = datetime.now()
         frame = HeatmiserFrame(self.id, self.C_WRITE_PARAM)
         frame.set_bytes(2, self.MODEL_CODE)
-        frame.set_bytes(3, )
+        frame.set_bytes(3, now.weekday() + 1)
+        frame.set_bytes(4, now.hour)
+        frame.set_bytes(5, now.minute)
+        frame.set_bytes(6, 0)
+        frame.set_bytes(7, self.part_number)
+        frame.set_bytes(8, self.switching_diff)
+        status_bits = [
+            self.temp_format, self.frost_enable, self.sensor_selection, self.floor_limit, \
+            self.heating_state, self.frost_mode, self.lock_state, self.enabled \
+        ]
+        status_byte = sum(v<<i for i, v in enumerate(status_bits))
+        frame.set_bytes(9, status_byte)
+        frame.set_bytes(10, self.set_temp)
+        frame.set_bytes(11, self.frost_temp)
+        frame.set_bytes(12, self.output_delay)
+        frame.set_bytes(13, self.pre_heat)
+        frame.set_bytes(14, self.floor_temp)
+        #log('debug', "Will write full data:", frame)
+        return frame
 
 
 class HeatmiserDevicePRTHW(HeatmiserDevice):
@@ -170,13 +224,33 @@ class HeatmiserDevicePRTHW(HeatmiserDevice):
         hour, minute, self._room_temp, self._set_temp = frame.get_bytes(4, 4)
         self._datetime = self._relative_date(now, weekday, hour, minute)
         # self._part_number = frame.get_bits(9, 0, 4)
-        self._switching_diff = frame.get_bits(9, 4, 4)
-        self._temp_format = frame.get_bool(8, 0)
+        self._switching_diff = frame.get_int(9)
+        self._temp_format, self._frost_enable = frame.get_bool(8, 0, 2)
         self._manual_hw_state, self._hw_state, self._heating_state, \
             self._frost_mode, self._lock_state, self._enabled \
             = frame.get_bool(8, 2, 6)
-        self._frost_temp, self._output_delay = frame.get_bytes(10, 2)
+        self._frost_temp, self._output_delay, self._pre_heat = frame.get_bytes(10, 3)
 
     def _write_all_to_frame(self):
+        now = datetime.now()
         frame = HeatmiserFrame(self.id, self.C_WRITE_PARAM)
-        frame.set_bytes()
+        frame.set_bytes(2, self.MODEL_CODE)
+        frame.set_bytes(3, now.weekday() + 1)
+        frame.set_bytes(4, now.hour)
+        frame.set_bytes(5, now.minute)
+        frame.set_bytes(6, 18)
+        frame.set_bytes(7, self.set_temp)
+        status_bits = [
+            self.temp_format, self.frost_enable, self.manual_hw_state, False, \
+            False, self.frost_mode, self.lock_state, self.enabled \
+        ]
+        status_byte = sum(v<<i for i, v in enumerate(status_bits))
+        frame.set_bytes(8, status_byte)
+        frame.set_bytes(9, self.switching_diff)
+        frame.set_bytes(10, self.frost_temp)
+        frame.set_bytes(11, self.output_delay)
+        frame.set_bytes(12, self.pre_heat)
+        frame.set_bytes(13, 0)
+        frame.set_bytes(14, 0)
+        #log('debug', "Will write full data:", frame)
+        return frame

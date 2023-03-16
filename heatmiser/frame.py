@@ -74,3 +74,6 @@ class HeatmiserFrame:
     @property
     def data(self):
         return self._data
+        
+    def __len__(self):
+        return len(self._data)
