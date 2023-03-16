@@ -189,7 +189,7 @@ class HeatmiserDevicePRT(HeatmiserDevice):
         frame.set_bytes(3, now.weekday() + 1)
         frame.set_bytes(4, now.hour)
         frame.set_bytes(5, now.minute)
-        frame.set_bytes(6, 0)
+        frame.set_bytes(6, self.room_temp)
         frame.set_bytes(7, self.part_number)
         frame.set_bytes(8, self.switching_diff)
         status_bits = [
@@ -238,7 +238,7 @@ class HeatmiserDevicePRTHW(HeatmiserDevice):
         frame.set_bytes(3, now.weekday() + 1)
         frame.set_bytes(4, now.hour)
         frame.set_bytes(5, now.minute)
-        frame.set_bytes(6, 18)
+        frame.set_bytes(6, self.room_temp)
         frame.set_bytes(7, self.set_temp)
         status_bits = [
             self.temp_format, self.frost_enable, self.manual_hw_state, False, \
