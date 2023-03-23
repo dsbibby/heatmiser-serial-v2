@@ -62,7 +62,7 @@ class HeatmiserNetwork:
                 await self._devices[device_id].handle_frame(frame)
             except KeyError:
                 new_device = device.HeatmiserDevice(self, frame=frame)
-                if isinstance(new_device, device.HeatmiserDevice):
+                if isinstance(new_device, device.HeatmiserDevice) and new_device.is_valid:
                     self._devices[device_id] = new_device
                     log('info', 'Discovered device', new_device)
                     if callable(self.on_device_discovered):
