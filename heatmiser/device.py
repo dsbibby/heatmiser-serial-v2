@@ -124,7 +124,7 @@ class HeatmiserDevice():
 
     @property
     def is_valid(self):
-        return self.id != None
+        return self.id != None and self.MODEL_CODE != 0x00
 
     def __getattr__(self, name):
         def get_param():
