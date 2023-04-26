@@ -68,18 +68,19 @@ class HeatmiserDevice():
         log('debug1', 'Device', self.id, 'got frame:', frame)
         if not frame.is_valid or frame.device_id != self.id:
             log('error', "Invalid frame for device_id", self.id, ":", frame)
-        if frame.command_code == self.C_READ_PARAM:
-            if len(frame) == 4:
-                await self._net.write_frame(frame)
-            else:
-                self._read_all_from_frame(frame)
         else:
-            #param = self._get_param_for_code(frame.command_code)
-            #if param and len(frame) == 4:
-            #    await self._net.write_frame(frame)
-            #else:
-            #    log('debug', "Unhandled frame:", frame)
-            await self.refresh()
+            if frame.command_code == self.C_READ_PARAM:
+                if len(frame) == 4:
+                    await self._net.write_frame(frame)
+                else:
+                    self._read_all_from_frame(frame)
+            else:
+                #param = self._get_param_for_code(frame.command_code)
+                #if param and len(frame) == 4:
+                #    await self._net.write_frame(frame)
+                #else:
+                #    log('debug', "Unhandled frame:", frame)
+                await self.refresh()
 
     async def refresh(self):
         log('debug1', f'Device, id {self.id} refreshing')
