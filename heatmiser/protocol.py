@@ -41,9 +41,9 @@ class HeatmiserProtocol(asyncio.Protocol):
             log('debug1', 'protocol write delayed awaiting previous rx')
             while self._lastwrite and \
                     self._lastwrite + timedelta(seconds=2) > datetime.now():
-                await asyncio.sleep(0.2)
-            log('debug1', 'protocol waited', (datetime.now() - start).seconds,
-                'seconds before writing')
+                await asyncio.sleep(50)
+            log('debug', 'protocol waited', (datetime.now() - start).microseconds,
+                'microseconds before writing')
         log('debug1', "protocol writing frame:", frame)
         self.transport.write(frame.data)
         self._lastwrite = datetime.now()

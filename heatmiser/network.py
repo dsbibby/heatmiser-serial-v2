@@ -43,11 +43,13 @@ class HeatmiserNetwork:
         tasks.add(asyncio.create_task(self._monitor_loop()))
         tasks.add(frame_handler)
         while self._protocol.transport.serial:
-            await asyncio.sleep(5)
+            await asyncio.sleep(50)
             now = datetime.now()
-            if now.hour == 0 and now.minute == 0 and now.second < 5:
+            if now.hour == 0 and now.minute == 0 and now.second < 6:
                 for device in self._devices.values():
                     await device._send_param_update('datetime', now)
+                    await asyncio.sleep(50)
+                    
         # log('warn', 'cancelling serial handlers')
         # for task in tasks:
         #    task.cancel()
