@@ -43,12 +43,8 @@ class HeatmiserNetwork:
         tasks.add(asyncio.create_task(self._monitor_loop()))
         tasks.add(frame_handler)
         while self._protocol.transport.serial:
-            await asyncio.sleep(50)
-            now = datetime.now()
-            if now.hour == 0 and now.minute == 0 and now.second < 6:
-                for device in self._devices.values():
-                    await device._send_param_update('datetime', now)
-                    await asyncio.sleep(50)
+            await asyncio.sleep(10)
+            log('debug1', 'Network run loop heartbeat')
                     
         # log('warn', 'cancelling serial handlers')
         # for task in tasks:
@@ -79,13 +75,18 @@ class HeatmiserNetwork:
         for _id in discovery_range:
             frame = HeatmiserFrame(_id, 0x4d, 0x00)
             await self._protocol.write_frame(frame)
-            await asyncio.sleep(.1)
+            await asyncio.sleep(0.2)
 
     async def _monitor_loop(self):
         while True:
-            for id, device in self._devices.items():
-                await device.refresh()
-                await asyncio.sleep(.2)
+            now = datetime.now()
+            for device in self._devices.values():
+                if now.hour == 2 and now.minute == 0 and now.second < 6:
+                    log('info', 'Updating date/time for all stats...')
+                    await device._send_param_update('datetime', now)
+                else:
+                    await device.refresh()
+                await asyncio.sleep(0.2)
                 
     async def write_frame(self, frame):
         await self._protocol.write_frame(frame)
